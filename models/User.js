@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcryptjs");
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const UserSchema = new mongoose.Schema({
   name: {
@@ -55,25 +56,43 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  resetPasswordToken: {
+    type: String,
+  },
+  resetPasswordExpire: {
+    type: Date,
+  },
 });
 
 //User Schema Methods
 
 UserSchema.methods.generateJwtFromUser = function () {
-
-  const{JWT_SECRET_KEY,JWT_EXPIRE} = process.env;
+  const { JWT_SECRET_KEY, JWT_EXPIRE } = process.env;
 
   const payload = {
     id: this._id,
     name: this.name,
   };
 
-  const token = jwt.sign(payload,JWT_SECRET_KEY,{
-    expiresIn:JWT_EXPIRE
+  const token = jwt.sign(payload, JWT_SECRET_KEY, {
+    expiresIn: JWT_EXPIRE,
   });
   return token;
-
 };
+UserSchema.methods.getResetPasswordTokenFromUser = function () {
+  const randomHexString = crypto.randomBytes(15).toString("hex");
+
+  const {RESET_PASSWORD_EXPIRE} = process.env;
+
+  const resetPasswordToken = crypto
+    .createHash("SHA256")
+    .update(randomHexString)
+    .digest("hex");
+
+  this.resetPasswordToken = resetPasswordToken;
+  this.resetPasswordExpire = Date.now() + parseInt(RESET_PASSWORD_EXPIRE);
+  
+  };
 
 //Pre Hooks
 UserSchema.pre("save", function (next) {
