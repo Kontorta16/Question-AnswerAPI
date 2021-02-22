@@ -6,6 +6,7 @@ const {
   validateUserInput,
   comparePassword,
 } = require("../helpers/input/inputHelpers");
+const sendEmail = require("../helpers/libraries/sendEmail");
 
 const register = asyncErrorWrapper(async (req, res, next) => {
   const { name, email, password, role } = req.body;
@@ -86,9 +87,56 @@ const forgotPassword = asyncErrorWrapper(async (req, res, next) => {
 
   await user.save();
 
-  res.json({
+  const resetPasswordUrl = `http://localhost:5000/api/auth/resetPassword?resetPasswordToken=${resetPasswordToken}`;
+  const emailTemplate = `
+    <h3>Reset Your Password</h3>
+    <p> This <a href = '${resetPasswordUrl}' target = '_blank'>Link</a> Will Expire In 1 Hour</p>
+  `;
+
+  try {
+    await sendEmail({
+      from: process.env.SMTP_USER,
+      to: resetEmail,
+      subject: "Reset Your Password",
+      html: emailTemplate,
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Token Sent To Your Email!",
+    });
+  } catch (err) {
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    return next(new CustomError("Email Could Not Be Sent!", 500));
+  }
+});
+
+const resetPassword = asyncErrorWrapper(async (req, res, next) => {
+  const { resetPasswordToken } = req.query;
+  const { password } = req.body;
+  if (!resetPasswordToken) {
+    return next(new CustomError("Please Provide a Valid Token", 400));
+  }
+  let user = await User.findOne({
+    resetPasswordToken: resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new CustomError("Invalid Token or Session Expired!", 404));
+  }
+
+  user.password = password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  await user.save();
+
+  return res.status(200).json({
     success: true,
-    message: "Token Sent To Your Email!",
+    message: "Reset Password Process Successfull",
   });
 });
 
@@ -99,4 +147,5 @@ module.exports = {
   getUser,
   imageUpload,
   forgotPassword,
+  resetPassword,
 };
