@@ -1,4 +1,8 @@
 const CustomError = require("../../helpers/error/CustomError");
+const asyncErrorWrapper = require("express-async-handler");
+const User = require("../../models/User");
+const Question = require("../../models/Question");
+
 const jwt = require("jsonwebtoken");
 const {
   isTokenIncluded,
@@ -23,13 +27,35 @@ const getAccessToRoute = (req, res, next) => {
       );
     }
     req.user = {
-      id:decoded.id,
-      name:decoded.name
+      id: decoded.id,
+      name: decoded.name
     }
     next();
   });
 };
 
+const getAdminAccess = asyncErrorWrapper(async (req, res, next) => {
+  const { id } = req.user;
+  const user = await User.findById(id);
+
+  if (user.role !== "admin") {
+    return next(new CustomError("Only Admins Can Access this route", 403));
+  }
+  next();
+});
+
+const getQuestionOwnerAccess = asyncErrorWrapper(async (req, res, next)=>{
+  const userId = req.user.id;
+  const questionId = req.params.id;
+  const question = await Question.findById(questionId);
+  if(question.user != userId) {
+    return next(new CustomError("Only Owner Can Access This Operation", 403));
+  }
+  next();
+});
+
 module.exports = {
   getAccessToRoute,
+  getAdminAccess,
+  getQuestionOwnerAccess,
 };
