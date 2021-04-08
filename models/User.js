@@ -66,7 +66,6 @@ const UserSchema = new mongoose.Schema({
 });
 
 //User Schema Methods
-
 UserSchema.methods.generateJwtFromUser = function () {
   const { JWT_SECRET_KEY, JWT_EXPIRE } = process.env;
 
@@ -94,7 +93,6 @@ UserSchema.methods.getResetPasswordTokenFromUser = function () {
   this.resetPasswordExpire = Date.now() + parseInt(RESET_PASSWORD_EXPIRE);
 
   return resetPasswordToken;
-  
   };
 
 //Pre Hooks
